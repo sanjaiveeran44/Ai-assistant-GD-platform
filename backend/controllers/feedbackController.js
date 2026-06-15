@@ -1,68 +1,106 @@
-const Feedback = require("../models/Feedback");
-const Transcript = require("../models/Transcript");
-const { generateFeedback } = require("../services/groqService");
+const Feedback = require('../models/Feedback');
+const Transcript = require('../models/Transcript');
+const { generateFeedback } = require('../services/groqService');
 
 const getRoomFeedback = async (req, res) => {
   try {
-    // userId comes from the authenticated JWT (set by authMiddleware)
     const { roomId } = req.body;
     const userId = req.user.id;
     const userName = req.user.name;
 
-    if (!roomId) {
-      return res.status(400).json({ error: "roomId is required" });
-    }
+    if (!roomId) return res.status(400).json({ error: 'roomId is required' });
 
-    console.log('[feedback] request roomId:', roomId, 'userId:', userId);
+    // Return cached feedback for this user+room
+    const cached = await Feedback.find({ roomId, userId });
+    if (cached.length > 0) return res.json(cached);
 
-    // Return cached feedback for this specific user+room if it already exists
-    const existingFeedback = await Feedback.find({ roomId, userId });
-    if (existingFeedback.length > 0) {
-      console.log('[feedback] returning cached feedback for userId:', userId);
-      return res.json(existingFeedback);
-    }
-
-    // Fetch only this user's transcripts for the room
+    // Fetch only this user's transcripts
     const userTranscripts = await Transcript.find({ roomId, userId }).sort({ startTimestamp: 1 });
-
-    console.log('[feedback] transcripts found for userId', userId, ':', userTranscripts.length);
-
     if (userTranscripts.length === 0) {
-      return res.status(404).json({ error: "No transcripts found for this user in this room" });
+      return res.status(404).json({ error: 'No transcripts found for this user in this room' });
     }
 
-    // Generate AI feedback using only this user's transcripts
     const aiFeedbackArray = await generateFeedback(userTranscripts);
-
     if (!Array.isArray(aiFeedbackArray) || aiFeedbackArray.length === 0) {
-      throw new Error("Groq did not return a valid feedback array");
+      throw new Error('Groq did not return a valid feedback array');
     }
 
-    // Use the first element — we sent one user's transcripts so expect one result.
-    // Override userId/userName with the authenticated values to prevent AI hallucination.
-    const aiFeedback = aiFeedbackArray[0];
+    const ai = aiFeedbackArray[0];
 
-    const feedbackDoc = {
-      roomId,
-      userId,
-      userName: userName || aiFeedback.userName,
-      communicationScore: aiFeedback.communicationScore,
-      confidenceScore: aiFeedback.confidenceScore,
-      grammarScore: aiFeedback.grammarScore,
-      participationScore: aiFeedback.participationScore,
-      strengths: aiFeedback.strengths,
-      improvements: aiFeedback.improvements,
-      summary: aiFeedback.summary,
+    // Pack extended fields into summary as JSON so no schema change is needed.
+    // The frontend will parse this to get the rich data.
+    const extendedData = {
+      text: ai.summary,
+      fluencyScore: ai.fluencyScore ?? null,
+      vocabularyScore: ai.vocabularyScore ?? null,
+      logicalThinkingScore: ai.logicalThinkingScore ?? null,
+      overallScore: ai.overallScore ?? null,
+      betterExpressions: ai.betterExpressions ?? [],
+      vocabularySuggestions: ai.vocabularySuggestions ?? [],
+      communicationTips: ai.communicationTips ?? [],
+      motivation: ai.motivation ?? '',
     };
 
-    console.log('[feedback] saving feedback for userId:', userId);
-    const saved = await Feedback.create(feedbackDoc);
+    const saved = await Feedback.create({
+      roomId,
+      userId,
+      userName: userName || ai.userName,
+      communicationScore: ai.communicationScore ?? 5,
+      confidenceScore: ai.confidenceScore ?? 5,
+      grammarScore: ai.grammarScore ?? 5,
+      participationScore: ai.participationScore ?? 5,
+      strengths: ai.strengths ?? [],
+      improvements: ai.improvements ?? [],
+      // Store extended data as JSON string in summary field
+      summary: JSON.stringify(extendedData),
+    });
 
     return res.json([saved]);
   } catch (error) {
-    console.error("[feedback] error:", error.message);
+    console.error('[feedback] error:', error.message);
     return res.status(500).json({ error: error.message });
   }
 };
 
-module.exports = { getRoomFeedback };
+// GET /api/feedback/leaderboard?roomId=xxx
+const getRoomLeaderboard = async (req, res) => {
+  try {
+    const { roomId } = req.query;
+    if (!roomId) return res.status(400).json({ error: 'roomId is required' });
+
+    const feedbacks = await Feedback.find({ roomId });
+    if (feedbacks.length === 0) return res.json([]);
+
+    const leaderboard = feedbacks.map(fb => {
+      let overallScore = null;
+      try {
+        const ext = JSON.parse(fb.summary);
+        overallScore = ext.overallScore;
+      } catch (_) {}
+
+      // Composite rank score weighted across available dimensions
+      const composite = overallScore ??
+        Math.round(
+          (fb.communicationScore + fb.confidenceScore + fb.grammarScore + fb.participationScore) / 4
+        );
+
+      return {
+        userId: fb.userId,
+        userName: fb.userName,
+        communicationScore: fb.communicationScore,
+        confidenceScore: fb.confidenceScore,
+        grammarScore: fb.grammarScore,
+        participationScore: fb.participationScore,
+        overallScore: composite,
+      };
+    });
+
+    leaderboard.sort((a, b) => b.overallScore - a.overallScore);
+    res.json(leaderboard);
+  } catch (error) {
+    console.error('[leaderboard] error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+module.exports = { getRoomFeedback, getRoomLeaderboard };
