@@ -109,18 +109,16 @@ const Room = () => {
   const handleBuzzerRelease = () => {
     stopListening();
     socket.emit('buzzer-release', { roomId: id, userId: user.id });
-    
+
     if (transcript.trim() && speechStartRef.current) {
-      const payload = {
+      socket.emit('transcript-update', {
         roomId: id,
         userId: user.id,
         userName: user.name,
         startTimestamp: speechStartRef.current,
         endTimestamp: Date.now(),
         transcript: transcript.trim()
-      };
-      console.log('[Room] emitting transcript-update:', payload);
-      socket.emit('transcript-update', payload);
+      });
     }
   };
 

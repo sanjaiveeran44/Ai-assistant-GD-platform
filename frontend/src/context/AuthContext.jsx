@@ -24,18 +24,11 @@ export const AuthProvider = ({ children }) => {
     const response = await api.post('/auth/login', { email, password });
     const { token, user } = response.data;
 
-    console.log('[AuthContext] login response user:', user);
-
-    // The server now always returns a clean 'id' (uuid). Keep _id fallback
-    // only as a safety net in case of very old cached responses.
+    // Server always returns a resolved 'id'. Keep _id as safety fallback.
     const normalizedUser = {
       ...user,
       id: user.id || user._id,
     };
-
-    if (!normalizedUser.id) {
-      console.error('[AuthContext] WARNING: user has no id after login!', user);
-    }
 
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(normalizedUser));

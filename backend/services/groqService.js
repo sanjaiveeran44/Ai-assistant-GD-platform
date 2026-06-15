@@ -6,29 +6,32 @@ const generateFeedback = async (transcriptData) => {
     throw new Error('GROQ_API_KEY is not configured');
   }
 
-  console.log("Groq Key:", apiKey);
-  console.log("Length:", apiKey.length);
+  // transcriptData contains only one user's transcripts.
+  // Extract speaker identity from the first record.
+  const speakerUserId = transcriptData[0]?.userId || '';
+  const speakerUserName = transcriptData[0]?.userName || 'Participant';
 
-  const prompt = `You are an HR interviewer analyzing a Group Discussion transcript.
-For every participant return JSON in the following strict format:
+  const prompt = `You are an HR interviewer evaluating a single participant in a Group Discussion.
+Analyze the following transcript entries spoken by "${speakerUserName}" and return a JSON array with exactly one object:
+
 [
   {
-    "userId": "string",
-    "userName": "string",
-    "communicationScore": number (0-10),
-    "confidenceScore": number (0-10),
-    "grammarScore": number (0-10),
-    "participationScore": number (0-10),
-    "strengths": ["string"],
-    "improvements": ["string"],
-    "summary": "string"
+    "userId": "${speakerUserId}",
+    "userName": "${speakerUserName}",
+    "communicationScore": <number 0-10>,
+    "confidenceScore": <number 0-10>,
+    "grammarScore": <number 0-10>,
+    "participationScore": <number 0-10>,
+    "strengths": ["<string>"],
+    "improvements": ["<string>"],
+    "summary": "<string>"
   }
 ]
 
-Return ONLY valid JSON array. No markdown blocks, no other text.
+Return ONLY the JSON array. No markdown, no extra text.
 
-Transcript Data:
-${JSON.stringify(transcriptData, null, 2)}`;
+Transcript entries:
+${JSON.stringify(transcriptData.map(t => ({ text: t.transcript, duration: t.duration })), null, 2)}`;
 
   try {
     const response = await axios.post(
@@ -47,22 +50,18 @@ ${JSON.stringify(transcriptData, null, 2)}`;
     );
 
     const content = response.data.choices[0].message.content;
-    try {
-        // Find the first '[' and last ']' just in case Groq added markdown
-        const startIndex = content.indexOf('[');
-        const endIndex = content.lastIndexOf(']');
-        const jsonStr = content.slice(startIndex, endIndex + 1);
-        return JSON.parse(jsonStr);
-    } catch (parseError) {
-        console.error('Failed to parse Groq response as JSON:', content);
-        throw new Error('Invalid JSON format from AI');
+    const startIndex = content.indexOf('[');
+    const endIndex = content.lastIndexOf(']');
+    if (startIndex === -1 || endIndex === -1) {
+      console.error('[groq] response did not contain JSON array:', content);
+      throw new Error('Invalid JSON format from AI');
     }
+    return JSON.parse(content.slice(startIndex, endIndex + 1));
   } catch (error) {
-    console.error('Groq API error:', error.response?.data || error.message);
+    if (error.message === 'Invalid JSON format from AI') throw error;
+    console.error('[groq] API error:', error.response?.data || error.message);
     throw new Error('Failed to generate AI feedback');
   }
 };
 
-module.exports = {
-  generateFeedback
-};
+module.exports = { generateFeedback };

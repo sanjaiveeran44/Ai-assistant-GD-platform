@@ -57,9 +57,11 @@ const login = async (req, res) => {
       return res.status(400).json({ error: 'Invalid login credentials' });
     }
 
+    const resolvedId = user.id || user._id.toString();
+
     const payload = {
       user: {
-        id: user.id,
+        id: resolvedId,
         name: user.name,
         email: user.email
       }
@@ -72,17 +74,14 @@ const login = async (req, res) => {
       (err, token) => {
         if (err) throw err;
 
-        // Build the response user object explicitly so 'id' is always the uuid string.
-        // Never rely on toObject() alone — legacy documents may lack the 'id' field.
         const userObj = {
-          id: user.id,       // uuid string from schema field
+          id: resolvedId,
           name: user.name,
           email: user.email,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         };
 
-        console.log('[auth] login response user:', userObj);
         res.json({ token, user: userObj });
       }
     );
