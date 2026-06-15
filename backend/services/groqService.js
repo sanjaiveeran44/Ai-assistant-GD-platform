@@ -34,7 +34,7 @@ ${JSON.stringify(transcriptData, null, 2)}`;
     const response = await axios.post(
       'https://api.groq.com/openai/v1/chat/completions',
       {
-        model: 'llama3-8b-8192',
+        model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1
       },
