@@ -1,9 +1,18 @@
 const Room = require('../models/Room');
 const Transcript = require('../models/Transcript');
+const moderator = require('../services/moderatorService');
 
 module.exports = (io) => {
   // { roomId: { participants: [...], buzzerStatus: {...} } }
   const activeRooms = {};
+
+  // Emit helper passed into moderator service
+  const emitModeratorMessage = (roomId, payload) => {
+    io.to(roomId).emit('moderator-message', {
+      ...payload,
+      timestamp: new Date().toISOString(),
+    });
+  };
 
   io.on('connection', (socket) => {
 
@@ -35,8 +44,11 @@ module.exports = (io) => {
     // ── GD Start / End ───────────────────────────────────────────────────────
     socket.on('gd-start', async ({ roomId }) => {
       try {
-        await Room.findOneAndUpdate({ id: roomId }, { status: 'active' });
+        const room = await Room.findOneAndUpdate({ id: roomId }, { status: 'active' }, { new: true });
         io.to(roomId).emit('gd-start');
+        // Kick off moderator — pass current topic from description field
+        const topic = room?.description || '';
+        moderator.onGdStart(roomId, topic, emitModeratorMessage);
       } catch (err) {
         console.error('gd-start error:', err);
       }
@@ -45,6 +57,8 @@ module.exports = (io) => {
     socket.on('gd-end', async ({ roomId }) => {
       try {
         await Room.findOneAndUpdate({ id: roomId }, { status: 'ended' });
+        // Moderator summary fires before gd-end so clients receive it first
+        await moderator.onGdEnd(roomId, emitModeratorMessage);
         io.to(roomId).emit('gd-end');
       } catch (err) {
         console.error('gd-end error:', err);
@@ -53,8 +67,8 @@ module.exports = (io) => {
 
     // ── Topic Update (broadcast after host generates via API) ────────────────
     socket.on('topic-generated', ({ roomId, topic }) => {
-      // Relay to all participants in the room
       io.to(roomId).emit('topic-update', { topic });
+      moderator.setTopic(roomId, topic);
     });
 
     // ── Buzzer ───────────────────────────────────────────────────────────────
@@ -86,6 +100,9 @@ module.exports = (io) => {
       } catch (err) {
         console.error('[transcript] DB save error:', err.message);
       }
+
+      // Feed transcript into moderator (non-blocking)
+      moderator.onTranscript(roomId, { userName, transcript }, emitModeratorMessage).catch(() => {});
     });
 
     // ── Disconnect ───────────────────────────────────────────────────────────

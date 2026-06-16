@@ -5,7 +5,60 @@ import { SocketContext } from '../context/SocketContext';
 import useSpeechRecognition from '../hooks/useSpeechRecognition';
 import api from '../services/api';
 import Button from '../components/Button';
-import { Users, Copy, Mic, Square, AlertCircle, CheckCircle2, Sparkles } from 'lucide-react';
+import { Users, Copy, Mic, Square, AlertCircle, CheckCircle2, Sparkles, Bot } from 'lucide-react';
+
+// ── Moderator Panel ──────────────────────────────────────────────────────────
+const TYPE_STYLE = {
+  starter:     { emoji: '👋', label: 'Welcome',            bg: 'from-violet-500 to-indigo-500'  },
+  appreciation:{ emoji: '✨', label: 'Appreciation',       bg: 'from-emerald-500 to-teal-500'   },
+  followup:    { emoji: '💡', label: 'Follow-up Question', bg: 'from-amber-500 to-orange-500'   },
+  counter:     { emoji: '🔄', label: 'Counter Perspective',bg: 'from-blue-500 to-cyan-500'      },
+  engagement:  { emoji: '🎯', label: 'Engagement Prompt',  bg: 'from-pink-500 to-rose-500'      },
+  summary:     { emoji: '📋', label: 'Discussion Summary', bg: 'from-gray-600 to-slate-600'     },
+};
+
+const ModeratorPanel = ({ messages }) => {
+  if (messages.length === 0) return null;
+  const latest = messages[messages.length - 1];
+  const style = TYPE_STYLE[latest.type] || TYPE_STYLE.engagement;
+
+  return (
+    <div className="mx-4 mt-3 mb-1">
+      {/* Latest message — highlighted */}
+      <div className={`rounded-2xl bg-gradient-to-r ${style.bg} p-[1.5px] shadow-lg`}>
+        <div className="bg-white rounded-2xl px-4 py-3.5">
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`w-6 h-6 rounded-full bg-gradient-to-br ${style.bg} flex items-center justify-center flex-shrink-0`}>
+              <Bot className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">AI Moderator</span>
+            <span className={`ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gradient-to-r ${style.bg} text-white`}>
+              {style.emoji} {style.label}
+            </span>
+          </div>
+          <p className="text-sm text-gray-800 leading-relaxed font-medium animate-fade-in">
+            {latest.text}
+          </p>
+        </div>
+      </div>
+
+      {/* Previous messages — collapsed subtle list */}
+      {messages.length > 1 && (
+        <div className="mt-1.5 space-y-1 px-1">
+          {messages.slice(0, -1).reverse().slice(0, 2).map((m, i) => {
+            const s = TYPE_STYLE[m.type] || TYPE_STYLE.engagement;
+            return (
+              <div key={i} className="flex items-start gap-2 text-xs text-gray-400 leading-snug">
+                <span>{s.emoji}</span>
+                <span className="truncate">{m.text}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ── Topic Card ───────────────────────────────────────────────────────────────
 const TopicCard = ({ topic }) => {
@@ -54,6 +107,7 @@ const Room = () => {
   const [transcripts, setTranscripts] = useState([]);
   const [topic, setTopic] = useState('');
   const [generatingTopic, setGeneratingTopic] = useState(false);
+  const [moderatorMessages, setModeratorMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
@@ -101,6 +155,10 @@ const Room = () => {
       showToast('📌 New topic generated!');
     });
 
+    socket.on('moderator-message', (msg) => {
+      setModeratorMessages(prev => [...prev, msg]);
+    });
+
     return () => {
       socket.emit('leave-room', { roomId: id, userId: user.id });
       socket.off('participant-update');
@@ -109,6 +167,7 @@ const Room = () => {
       socket.off('gd-end');
       socket.off('transcript-received');
       socket.off('topic-update');
+      socket.off('moderator-message');
     };
   }, [socket, room?.id, user?.id]);
 
@@ -285,6 +344,9 @@ const Room = () => {
 
             {/* Topic */}
             {topic && <TopicCard topic={topic} />}
+
+            {/* Moderator Panel */}
+            <ModeratorPanel messages={moderatorMessages} />
 
             {/* Transcripts */}
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50">

@@ -106,4 +106,61 @@ Rules:
   }
 };
 
-module.exports = { generateTopic, generateFeedback };
+// ─── Moderator Message Generator ─────────────────────────────────────────────
+
+const TYPE_META = {
+  starter:     { emoji: '👋', label: 'Discussion Starter' },
+  appreciation:{ emoji: '✨', label: 'Appreciation'       },
+  followup:    { emoji: '💡', label: 'Follow-up'          },
+  counter:     { emoji: '🔄', label: 'Counter Perspective'},
+  engagement:  { emoji: '🎯', label: 'Engagement Prompt'  },
+  summary:     { emoji: '📋', label: 'Summary'            },
+};
+
+/**
+ * callGroqModerator({ type, topic, recentTranscripts, history })
+ * Returns a plain string — the moderator message text.
+ */
+const callGroqModerator = async ({ type, topic, recentTranscripts = [], history = [] }) => {
+  const topicLine    = topic ? `Topic: "${topic}"` : 'Topic: (not yet set)';
+  const recentLines  = recentTranscripts.length
+    ? recentTranscripts.map(t => `  ${t.userName}: "${t.transcript}"`).join('\n')
+    : '  (no messages yet)';
+  const historyLines = history.length
+    ? history.map(h => `  - ${h}`).join('\n')
+    : '  (none)';
+
+  const instructions = {
+    starter: `Welcome participants warmly, introduce the topic in one sentence, and set a positive, energetic tone. Invite everyone to share their thoughts.`,
+    appreciation: `Acknowledge the quality of recent contributions with a specific, genuine compliment. Reference what was actually said.`,
+    followup: `Ask ONE sharp, open-ended follow-up question directly inspired by the last few messages. Make it thought-provoking.`,
+    counter: `Introduce a respectful counter-perspective or devil's advocate viewpoint relevant to recent discussion. Phrase it as a question.`,
+    engagement: `Notice the discussion energy and invite participation with an encouraging, open question. Do not call out anyone by name.`,
+    summary: `Summarise the discussion: list 2-3 main arguments made, 1-2 counter-arguments, and key takeaways. End with a warm, motivating closing message.`,
+  };
+
+  const prompt = `You are a professional, encouraging Group Discussion moderator facilitating a live session.
+
+${topicLine}
+
+Recent participant messages:
+${recentLines}
+
+Your previous moderator messages (do NOT repeat these ideas):
+${historyLines}
+
+Your task: ${instructions[type] || instructions.engagement}
+
+Rules:
+- Be warm, positive, and encouraging. Never criticise anyone.
+- Keep the response under 50 words (except for summary type — up to 120 words).
+- Stay strictly on the current topic.
+- Do not repeat ideas from your previous messages listed above.
+- Do not prefix with labels like "Moderator:" or emojis.
+- Return ONLY the message text. No quotes, no extra text.`;
+
+  const content = await callGroq(prompt);
+  return content.trim().replace(/^["']|["']$/g, '');
+};
+
+module.exports = { generateTopic, generateFeedback, callGroqModerator };
