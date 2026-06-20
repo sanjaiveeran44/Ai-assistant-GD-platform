@@ -6,6 +6,7 @@ import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { PlusCircle, LogIn, Clock } from 'lucide-react';
+import DailyChallenge from '../components/DailyChallenge';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
@@ -58,6 +59,8 @@ const Dashboard = () => {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="mt-1 text-gray-500">Welcome back, {user?.name}</p>
         </div>
+
+        <DailyChallenge />
 
         {error && (
           <div className="bg-red-50 text-red-700 p-4 rounded-xl border border-red-100">

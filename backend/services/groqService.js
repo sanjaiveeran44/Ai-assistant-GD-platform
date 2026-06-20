@@ -163,4 +163,75 @@ Rules:
   return content.trim().replace(/^["']|["']$/g, '');
 };
 
-module.exports = { generateTopic, generateFeedback, callGroqModerator };
+// ─── Daily Challenge Generators ─────────────────────────────────────────────
+
+const generateDailyTopic = async () => {
+  const prompt = `Generate one unique Daily Challenge topic suitable for a 2-minute solo speech.
+The topic must be:
+- Relevant to technology, business, personal growth, or current affairs.
+- Thought-provoking and debatable.
+- Concise — one sentence, maximum 15 words.
+
+Return a JSON object with EXACTLY this structure:
+{
+  "topic": "<The generated topic>",
+  "category": "<A one-word category like Technology, Business, Education, etc.>",
+  "difficulty": "<Easy, Medium, or Hard>"
+}
+
+Return ONLY the JSON object. No quotes, no numbering, no markdown fences, no extra text.`;
+
+  try {
+    const content = await callGroq(prompt);
+    const startIndex = content.indexOf('{');
+    const endIndex = content.lastIndexOf('}');
+    if (startIndex === -1 || endIndex === -1) {
+      throw new Error('Invalid JSON format from AI');
+    }
+    return JSON.parse(content.slice(startIndex, endIndex + 1));
+  } catch (error) {
+    console.error('[groq] generateDailyTopic error:', error.response?.data || error.message);
+    throw new Error('Failed to generate daily topic');
+  }
+};
+
+const evaluateDailyChallenge = async (transcript, duration) => {
+  const prompt = `You are an expert communication coach evaluating a user's 2-minute solo speech.
+
+Speech Transcript (spoken in ${duration} seconds):
+"${transcript}"
+
+Evaluate this performance.
+Return a JSON object with EXACTLY this structure:
+{
+  "overallScore": <integer 0-100>,
+  "strengths": ["<strength 1>", "<strength 2>", "<strength 3>"],
+  "improvements": ["<improvement 1>", "<improvement 2>", "<improvement 3>"],
+  "betterExpression": {
+    "original": "<exact phrase from transcript>",
+    "improved": "<professionally rewritten version>"
+  },
+  "motivation": "<one encouraging, short motivational sentence>"
+}
+
+Rules:
+- Base ALL feedback on the actual transcript text provided.
+- If the transcript is very short, adapt the feedback appropriately, perhaps lowering the score and suggesting to speak more.
+- betterExpression MUST use EXACT phrases from the transcript.
+- Return ONLY the JSON object. No markdown fences, no extra text.`;
+
+  try {
+    const content = await callGroq(prompt);
+    const startIndex = content.indexOf('{');
+    const endIndex = content.lastIndexOf('}');
+    if (startIndex === -1 || endIndex === -1) {
+      throw new Error('Invalid JSON format from AI');
+    }
+    return JSON.parse(content.slice(startIndex, endIndex + 1));
+  } catch (error) {
+    console.error('[groq] evaluateDailyChallenge error:', error.response?.data || error.message);
+    throw new Error('Failed to evaluate daily challenge');
+  }
+};
+
+module.exports = { generateTopic, generateFeedback, callGroqModerator, generateDailyTopic, evaluateDailyChallenge };

@@ -5,6 +5,11 @@ const useSpeechRecognition = () => {
   const [transcript, setTranscript] = useState('');
   const [error, setError] = useState(null);
   const recognitionRef = useRef(null);
+  const isListeningRef = useRef(isListening);
+
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
 
   useEffect(() => {
     // Check for browser support
@@ -39,7 +44,7 @@ const useSpeechRecognition = () => {
     recognition.onend = () => {
       // If we are still supposed to be listening but it ended automatically, restart it.
       // This is because Web Speech API sometimes stops automatically after a pause.
-      if (isListening) {
+      if (isListeningRef.current) {
         try {
             recognition.start();
         } catch(e) {}
@@ -55,7 +60,7 @@ const useSpeechRecognition = () => {
         recognitionRef.current.stop();
       }
     };
-  }, [isListening]);
+  }, []);
 
   const startListening = () => {
     setError(null);

@@ -1,4 +1,4 @@
-const Feedback = require('../models/Feedback');
+const Feedback = require('../models/FeedBack');
 const Transcript = require('../models/Transcript');
 const { generateFeedback } = require('../services/groqService');
 

@@ -8,6 +8,7 @@ const { Server } = require('socket.io');
 const authRoutes = require('./routes/authRoutes');
 const roomRoutes = require('./routes/roomRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const dailyChallengeRoutes = require('./routes/dailyChallengeRoutes');
 
 // Handlers
 const socketHandler = require('./socket/socketHandler');
@@ -29,6 +30,7 @@ connectDB();
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/daily-challenge', dailyChallengeRoutes);
 
 // Socket.io Setup
 const path = require("path");
