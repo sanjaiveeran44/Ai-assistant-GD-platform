@@ -1,58 +1,192 @@
 # AI Group Discussion Platform
 
-A production-quality platform for conducting and analyzing group discussions using React, Express, Socket.io, and Groq AI.
+An AI-powered Group Discussion platform that enables users to participate in real-time discussions, generate live transcripts using browser speech recognition, and receive AI-generated performance feedback after the discussion.
 
 ## Features
 
-- **Structured GDs:** Real-time buzzer system to prevent overlapping speech.
-- **Live Transcripts:** Uses Web Speech API to convert speech to text in real-time.
-- **AI Feedback:** Generates HR-level evaluation for each participant automatically using Groq.
-- **Local Storage:** Zero-setup JSON file storage (`users.json`, `rooms.json`, `transcripts.json`, `feedback.json`).
+* User Registration and Login (JWT Authentication)
+* Create and Join Discussion Rooms
+* Real-time Communication with Socket.io
+* Waiting Room before discussion starts
+* Host-controlled Start and End Discussion
+* Buzzer system to ensure one speaker at a time
+* Live participant list
+* Browser Speech Recognition for transcript generation
+* Real-time transcript sharing
+* AI-generated discussion feedback using Groq LLM
+* MongoDB for persistent data storage
 
-## Setup Instructions
+---
 
-### 1. Backend Setup
+## Tech Stack
 
-Open a terminal and run the following:
+### Frontend
+
+* React
+* Vite
+* Tailwind CSS
+* React Router
+* Axios
+* Socket.io Client
+* Web Speech API
+
+### Backend
+
+* Node.js
+* Express.js
+* Socket.io
+* MongoDB
+* Mongoose
+* JWT Authentication
+* Bcrypt
+* Groq API
+
+---
+
+## Project Structure
+
+```
+project/
+│
+├── frontend/
+│   ├── src/
+│   ├── public/
+│   └── package.json
+│
+├── backend/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│   ├── socket/
+│   ├── server.js
+│   └── package.json
+│
+└── README.md
+```
+
+---
+
+## Installation
+
+### Clone the repository
+
+```bash
+git clone <repository-url>
+cd project
+```
+
+### Backend
 
 ```bash
 cd backend
 npm install
 ```
 
-Configure your environment variables:
-1. Open `backend/.env.example` and save it as `backend/.env`
-2. Set your `GROQ_API_KEY` inside `.env`.
+Create a `.env` file:
 
-Start the backend server:
+```env
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/gd_platform
+JWT_SECRET=your_jwt_secret
+GROQ_API_KEY=your_groq_api_key
+```
+
+Start the backend:
+
 ```bash
 npm run dev
 ```
-*(The server runs on http://localhost:5000)*
 
-### 2. Frontend Setup
+---
 
-Open a new terminal window and run:
+### Frontend
 
 ```bash
 cd frontend
 npm install
-```
-
-Start the frontend server:
-```bash
 npm run dev
 ```
-*(The React app runs on http://localhost:5173)*
 
-## Usage Guide
+The frontend runs on:
 
-1. Open http://localhost:5173 in **Google Chrome** (required for Web Speech API support).
-2. Register a new account.
-3. In the Dashboard, create a new room. You will become the "Host".
-4. Copy the Room ID and open an Incognito window to join as another user.
-5. Once everyone is in the Waiting Room, the Host can click **Start GD**.
-6. Participants can click **Grab Buzzer** to speak. Allow microphone permissions.
-7. Speak clearly, then click **Done Speaking**.
-8. The Host can **End Discussion** when finished.
-9. The system will automatically generate AI feedback for all participants.
+```
+http://localhost:5173
+```
+
+---
+
+## Application Workflow
+
+1. Register a new account.
+2. Log in using your credentials.
+3. Create a new discussion room or join an existing one.
+4. The room host starts the discussion.
+5. Participants use the buzzer before speaking.
+6. Browser Speech Recognition generates live transcripts.
+7. Transcripts are stored in MongoDB.
+8. The host ends the discussion.
+9. Groq AI analyzes the discussion.
+10. Individual feedback is generated and displayed.
+
+---
+
+## Database Collections
+
+* Users
+* Rooms
+* Transcripts
+* Feedbacks
+
+---
+
+## Socket Events
+
+* `join-room`
+* `leave-room`
+* `gd-start`
+* `gd-end`
+* `buzzer-request`
+* `buzzer-release`
+* `participant-update`
+* `buzzer-update`
+* `transcript-update`
+* `transcript-received`
+
+---
+
+## AI Feedback
+
+After a discussion ends:
+
+* All room transcripts are collected.
+* The transcript is sent to the Groq LLM.
+* Each participant receives:
+
+  * Communication Score
+  * Confidence Score
+  * Grammar Score
+  * Participation Score
+  * Strengths
+  * Areas for Improvement
+  * Overall Summary
+
+---
+
+## Future Enhancements
+
+* Redis for scalable socket management
+* Kafka for event streaming
+* Docker containerization
+* Nginx reverse proxy
+* Speech-to-text improvements
+* Discussion history and analytics
+* Cloud deployment (AWS/Azure/GCP)
+
+---
+
+## License
+
+This project is developed for learning and educational purposes.
